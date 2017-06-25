@@ -13,10 +13,7 @@ vpath %.c $(STDPERIPH_SRC)
 vpath %.c $(STMTOUCH_SRC)
 
 SRCS = main.c
-SRCS += discover_functions.c
-SRCS += icc_measure.c
-SRCS += icc_measure_Ram.c
-SRCS += main.c
+SRCS += delay.c
 SRCS += stm32l1xx_it.c
 SRCS += stm32l_discovery_lcd.c
 SRCS += system_stm32l1xx.c
@@ -91,3 +88,6 @@ clean:
 flash: $(PROJECT_NAME).elf
 	openocd -f interface/stlink-v2.cfg -f target/stm32lx_stlink.cfg \
 	    -c "init" -c "flash probe 0" -c "program stm32l152-disco.elf 0 verify reset"
+
+openocd: $(PROJECT_NAME).elf
+	openocd -f interface/stlink-v2.cfg -f target/stm32lx_stlink.cfg -c "init"
