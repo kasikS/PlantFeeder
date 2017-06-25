@@ -141,6 +141,7 @@ void SysTick_Handler(void) {
 
 void EXTI0_IRQHandler(void)
 {
+    EXTI_ClearITPendingBit(EXTI_Line0);
 }
 
 /******************************************************************************/
