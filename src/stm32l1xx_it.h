@@ -34,6 +34,7 @@
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 
+
 void NMI_Handler(void);
 void HardFault_Handler(void);
 void MemManage_Handler(void);
@@ -44,6 +45,10 @@ void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
 void EXTI0_IRQHandler(void);
+
+extern __IO uint16_t ADC_values[2];
+extern uint16_t ADC4_voltage;
+extern uint16_t ADC5_voltage;
 
 #ifdef __cplusplus
 }

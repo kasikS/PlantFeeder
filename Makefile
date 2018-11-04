@@ -14,16 +14,20 @@ vpath %.c $(STMTOUCH_SRC)
 
 SRCS = main.c
 SRCS += delay.c
+SRCS += serial.c
+SRCS += ADC.c
 SRCS += stm32l1xx_it.c
 SRCS += stm32l_discovery_lcd.c
 SRCS += system_stm32l1xx.c
 SRCS += tsl_user.c
+SRCS += timer.c
 
 SRCS += Device/startup_stm32l1xx_md.s
 
 # StdPeriph library
 EXT_SRCS = misc.c
 EXT_SRCS += stm32l1xx_adc.c
+EXT_SRCS += stm32l1xx_tim.c
 EXT_SRCS += stm32l1xx_exti.c
 EXT_SRCS += stm32l1xx_flash.c
 EXT_SRCS += stm32l1xx_gpio.c
@@ -31,6 +35,8 @@ EXT_SRCS += stm32l1xx_pwr.c
 EXT_SRCS += stm32l1xx_rcc.c
 EXT_SRCS += stm32l1xx_rtc.c
 EXT_SRCS += stm32l1xx_lcd.c
+EXT_SRCS += stm32l1xx_usart.c
+EXT_SRCS += stm32l1xx_dma.c
 EXT_SRCS += stm32l1xx_syscfg.c
 
 # STMTouch library

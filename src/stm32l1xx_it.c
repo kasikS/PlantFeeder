@@ -28,7 +28,9 @@
 #include "stm32l_discovery_lcd.h"
 #include "tsl.h"
 #include "delay.h"
-
+#include "serial.h"
+#include "ADC.h"
+#include "timer.h"
 /** @addtogroup Template_Project
   * @{
   */
@@ -163,5 +165,78 @@ void EXTI0_IRQHandler(void)
 /**
   * @}
   */
+
+#define MAX_STRLEN 12
+volatile char received_string[MAX_STRLEN+1];
+
+
+void USART1_IRQHandler(void){
+
+	// check if the USART1 receive interrupt flag was set
+	if( USART_GetITStatus(USART1, USART_IT_RXNE) ){
+
+		static unsigned int cnt = 0; // this counter is used to determine the string length
+		char t = USART1->DR; // the character from the USART1 data register is saved in t
+
+		/* check if the received character is not the LF character (used to determine end of string)
+		 * or the if the maximum string length has been been reached
+		 */
+		if( (t != '\r') && (cnt < MAX_STRLEN) ){
+			received_string[cnt] = t;
+			cnt++;
+		}
+		else{ // otherwise reset the character counter and print the received string
+			cnt = 0;
+			UART_puts(USART1, received_string);
+		}
+
+	}
+}
+
+void USART2_IRQHandler(void){
+
+	// check if the USART2 receive interrupt flag was set
+	if( USART_GetITStatus(USART2, USART_IT_RXNE) ){
+
+		static unsigned int cnt = 0; // this counter is used to determine the string length
+		char t = USART2->DR; // the character from the USART2 data register is saved in t
+
+		/* check if the received character is not the LF character (used to determine end of string)
+		 * or the if the maximum string length has been been reached
+		 */
+		if( (t != '\r') && (cnt < MAX_STRLEN) ){
+			received_string[cnt] = t;
+			cnt++;
+		}
+		else{ // otherwise reset the character counter and print the received string
+			cnt = 0;
+			UART_puts(USART2, received_string);
+		}
+
+	}
+}
+
+
+
+void ADC1_IRQHandler(void)
+{
+	ADC1_SetRdy();
+ // if(ADC_GetITStatus(ADC1, ADC_IT_EOC) != RESET) //
+ // {
+    /* Clear ADC1 EOC pending interrupt bit */
+    ADC_ClearITPendingBit(ADC1, ADC_IT_EOC);
+
+  //}
+}
+
+void TIM3_IRQHandler()
+{
+    if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET)
+    {
+        TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
+        Timer3_SetRdy();
+//        UART_puts(USART1, "b \r\n");
+    }
+}
 
 /******************* (C) COPYRIGHT 2010 STMicroelectronics *****END OF FILE****/

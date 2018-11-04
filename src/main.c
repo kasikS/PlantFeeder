@@ -1,11 +1,38 @@
 #include "main.h"
 #include "delay.h"
+#include "serial.h"
+#include "ADC.h"
+#include "timer.h"
 
 #define enableGlobalInterrupts()   __set_PRIMASK(0);
 #define disableGlobalInterrupts()  __set_PRIMASK(1);
 
+
 void RCC_Configuration(void);
 void Init_GPIOs (void);
+
+uint16_t ADC_value;
+uint16_t ADC_valueConverted;
+uint16_t ADC_voltage;
+
+uint16_t ADC4_voltage = 0;
+uint16_t ADC5_voltage = 0;
+
+uint16_t ADC_conversion = 0;
+
+typedef enum {Watering, ATerazSpie} State;
+
+typedef struct
+{
+	uint32_t PumpPin;
+	GPIO_TypeDef* PumpPort;
+	uint16_t THigh;// dry  																// ADC voltage value [mV] high threshold - enough water
+	uint16_t TLow; // enough 															// ADC voltage value [mV] low threshold - dry!
+	uint16_t Humidity;
+	uint16_t Quantity;
+	State State;
+} Plant;
+
 
 int main(void)
 {
@@ -15,6 +42,55 @@ int main(void)
         To reconfigure the default setting of SystemInit() function, refer to
         system_stm32l1xx.c file
         */
+	int i=0;
+	char buf[256];
+	__IO uint16_t ADC_values[NChannels] = {0,};
+	int Cnt=0;
+
+	//3000 - dry
+	//1800 - water
+	//1200 - watered plant
+	//2200 - dry plant
+
+	//2500 - start watering
+	//1900 - stop watering!
+
+	Plant Plants[NChannels];
+	Plants[0].PumpPort= GPIOA;
+	Plants[0].PumpPin = GPIO_Pin_12;
+	Plants[0].THigh = 2200;
+	Plants[0].TLow = 1200;
+	Plants[0].Quantity = 3;
+	Plants[0].State = ATerazSpie;
+
+	Plants[1].PumpPort= GPIOA;
+	Plants[1].PumpPin = GPIO_Pin_11;
+	Plants[1].THigh = 200;
+	Plants[1].TLow = 50;
+	Plants[1].Quantity = 3;
+	Plants[1].State = ATerazSpie;
+
+	Plants[2].PumpPort= GPIOA;
+	Plants[2].PumpPin = GPIO_Pin_10;
+	Plants[2].THigh = 200;
+	Plants[2].TLow = 50;
+	Plants[2].Quantity = 3;
+	Plants[2].State = ATerazSpie;
+
+	Plants[3].PumpPort= GPIOA;
+	Plants[3].PumpPin = GPIO_Pin_9;
+	Plants[3].THigh = 200;
+	Plants[3].TLow = 50;
+	Plants[3].Quantity = 3;
+	Plants[3].State = ATerazSpie;
+
+	Plants[4].PumpPort= GPIOA;
+	Plants[4].PumpPin = GPIO_Pin_8;
+	Plants[4].THigh = 200;
+	Plants[4].TLow = 50;
+	Plants[4].Quantity = 3;
+	Plants[4].State = ATerazSpie;
+
 
     /* Configure Clocks for Application need */
     RCC_Configuration();
@@ -26,10 +102,10 @@ int main(void)
     while (PWR_GetFlagStatus(PWR_FLAG_VOS) != RESET) ;
 
     /* Init I/O ports */
-    Init_GPIOs();
+//    Init_GPIOs();
 
     /* Enable General interrupts */
-    enableGlobalInterrupts();
+//    enableGlobalInterrupts();
 
     /* Init Touch Sensing configuration */
     /*TSL_user_Init();*/
@@ -37,19 +113,93 @@ int main(void)
     DelayInit();
 
     /* Initializes the LCD glass */
-    LCD_GLASS_Init();
-    LCD_GLASS_DisplayString((unsigned char*)"Hello");
+//    LCD_GLASS_Init();
+//    LCD_GLASS_DisplayString((unsigned char*)"Hello");
 
     /* Switch off the leds*/
-    GPIO_HIGH(LD_GPIO_PORT,LD_GREEN_GPIO_PIN);
-    GPIO_HIGH(LD_GPIO_PORT,LD_BLUE_GPIO_PIN);
+//    GPIO_HIGH(LD_GPIO_PORT,LD_GREEN_GPIO_PIN);
+//    GPIO_HIGH(LD_GPIO_PORT,LD_BLUE_GPIO_PIN);
 
     /*Until application reset*/
+
+
+    //pump init PA11, PA12
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+//    ADC_CommonInitTypeDef ADC_CommonInitStructure;
+
+    /*enable the GPIOA clock for pin PA11  and PA12  */
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+    /* configure PA11 and PA12 in analog mode*/
+    GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_OUT;
+    GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_InitStructure.GPIO_OType = GPIO_OType_OD;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11|GPIO_Pin_12|GPIO_Pin_10|GPIO_Pin_9|GPIO_Pin_8;
+    GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+
+////////////////////
+    ADC1_Configure(Single, ADC_values);
+    ADC_DMACmd(ADC1, DISABLE);
+   	ADC_DMACmd(ADC1, ENABLE);
+    UART2_Configure(115200);
+    Timer3_Configure();
+
+    UART_puts(USART2, "siema \r\n");
+
+    for(Cnt=0; Cnt<NChannels; Cnt++)
+    {
+    	GPIO_HIGH(Plants[Cnt].PumpPort, Plants[Cnt].PumpPin);
+    }
+    GPIO_LOW(Plants[0].PumpPort, Plants[0].PumpPin);
+    GPIO_LOW(Plants[1].PumpPort, Plants[1].PumpPin);
+    GPIO_LOW(Plants[2].PumpPort, Plants[2].PumpPin);
+    GPIO_LOW(Plants[3].PumpPort, Plants[3].PumpPin);
+    GPIO_LOW(Plants[4].PumpPort, Plants[4].PumpPin);
+
     while (1)
     {
-        GPIO_TOGGLE(LD_GPIO_PORT,LD_BLUE_GPIO_PIN);
-        GPIO_TOGGLE(LD_GPIO_PORT,LD_GREEN_GPIO_PIN);
-        Delay(1000);
+
+		if(Timer3_IsRdy())
+		{
+			Timer3_ClearRdy();
+			ADC_SoftwareStartConv(ADC1);
+	        while ( !( (DMA1->ISR & DMA1_FLAG_TC1) && (ADC1_IsRdy()) ) );
+			ADC1_ClearRdy();
+			DMA_ClearFlag(DMA1_FLAG_GL1);
+
+			for (Cnt=0; Cnt < NChannels; Cnt++)
+			{
+				Plants[Cnt].Humidity = ADC_values[Cnt];
+				ADC_Convert(& Plants[Cnt].Humidity);
+
+				if(Plants[Cnt].State == ATerazSpie)
+				{
+					if(Plants[Cnt].Humidity > Plants[Cnt].THigh)
+					{
+						Plants[Cnt].State = Watering;
+					}
+				} else
+				{
+					if(Plants[Cnt].Humidity > Plants[Cnt].TLow)
+					{
+						GPIO_LOW(Plants[Cnt].PumpPort, Plants[Cnt].PumpPin);
+						Delay(Plants[Cnt].Quantity * 1000);
+						GPIO_HIGH(Plants[Cnt].PumpPort, Plants[Cnt].PumpPin);
+
+					} else	Plants[Cnt].State = ATerazSpie;
+				}
+			}
+
+
+
+
+			  sprintf(buf, "chan0: %d, chan1: %d, chan2: %d, chan3: %d, chan4: %d\r\n", Plants[0].Humidity, Plants[1].Humidity, Plants[2].Humidity, Plants[3].Humidity, Plants[4].Humidity);
+			  UART_puts(USART2, buf);
+
+	//    	}
+//			Delay(100);
+		}
     }
 }
 
